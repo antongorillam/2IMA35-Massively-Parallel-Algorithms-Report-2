@@ -8,7 +8,7 @@ from sklearn import datasets
 LENA_IMAGE_PATH = r"data/lena_color.tiff"
 BABOON_IMAGE_PATH = r"data/baboon.png"
 
-class dataloader():
+class Dataloader():
     def __init__(self):
         pass
 
@@ -35,11 +35,12 @@ class dataloader():
             if show:
                 plt.grid()
                 plt.show()
+            plt.close()
             return coords, labels
 
-def main():
-    dl = dataloader()
-    data = dl.get_data("blob", blob_size=10000 ,show=True)
-
-if __name__ == '__main__':
-    main()
+# def main():
+#     dl = Dataloader()
+#     data = dl.get_data("blob", blob_size=10000 ,show=True)
+#
+# if __name__ == '__main__':
+#     main()
