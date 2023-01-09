@@ -19,7 +19,7 @@ class Dataloader():
             if show:
                 plt.imshow(lena)
                 plt.show()
-            return lena
+            return lena, None
 
         elif data_name=="baboon":
             baboon_img = Image.open(BABOON_IMAGE_PATH)
@@ -27,7 +27,7 @@ class Dataloader():
             if show:
                 plt.imshow(baboon)
                 plt.show()
-            return baboon
+            return baboon, None
 
         elif data_name=="blob":
             coords, labels = datasets.make_blobs(n_samples=blob_size, centers=3, n_features=2, cluster_std=2, center_box=(-20, 20), random_state=42)
