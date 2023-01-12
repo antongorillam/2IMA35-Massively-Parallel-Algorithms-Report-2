@@ -11,8 +11,7 @@ a = 1
 n = 1000
 
 def coreset_construction(points, centers, epsilon=1e-1):
-    
-    S = []
+
     point_weights = dict()
     d = points.shape[1]
 
@@ -37,8 +36,7 @@ def coreset_construction(points, centers, epsilon=1e-1):
     current_points = points[min_distances < r]
     current_centers = closest_centers[min_distances < r]
     
-    cost = np.sum(np.power(min_distances, 2)) 
-
+    cost = np.sum(np.power(min_distances, 2))
 
     for i, (point, center_index) in enumerate(zip(current_points, current_centers)):
         c = centers[center_index]
@@ -49,16 +47,20 @@ def coreset_construction(points, centers, epsilon=1e-1):
         else: 
             point_weights[grid_position] = [point, 1]
 
+
     for j in range(1, int(z)+1):
         print(f"ITER {j} --------------------------------")
         s = epsilon * 2**j * r / (np.sqrt(d))
         distances = euclidean_distances(points, centers)
         closest_centers = np.argmin(distances, 1)
         min_distances = np.min(distances, axis=1)
-        current_points = points[min_distances >= 2**(j-1)*r]
-        current_centers = closest_centers[min_distances >= 2**(j-1)*r]
+        current_points = points[np.logical_and(min_distances >= 2 ** (j - 1) * r, min_distances < 2 ** j * r)]
+        current_centers = closest_centers[np.logical_and(min_distances >= 2 ** (j - 1) * r, min_distances < 2 ** j * r)]
+
+        if current_points.shape[0] == 0:
+            break
         
-        print(f"points: {points.shape}")
+        print(f"current points: {current_points.shape}")
         print(f"min_distances: {min_distances.shape}")
         print(f"current_centers.shape: {current_centers.shape}")
 
@@ -71,25 +73,30 @@ def coreset_construction(points, centers, epsilon=1e-1):
             else: 
                 point_weights[grid_position] = [point, 1]
                 # print(f"point_weights[grid_position]: {point_weights[grid_position]}")
-        coreset_points = np.array(list(point_weights.values()), dtype=object)
-        coreset_weights = np.array([i for i in coreset_points[:,1]])
-        coreset_points = np.array([i for i in coreset_points[:,0]])
-        coreset_dist = euclidean_distances(coreset_points, centers).min(axis=1)
-        coreset_cost = np.sum(np.power(coreset_dist, 2) * coreset_weights) 
-        print(f"cost: {cost}") 
-        print(f"croeset_cost: {coreset_cost}")
-        print(f"bound: {(1-epsilon) * cost} less than {coreset_cost} less than {(1+epsilon) * cost}")  
+    temporary_set = np.array(list(point_weights.values()), dtype=object)
+    S_weights = np.array([i for i in temporary_set[:,1]])
+    S = np.array([i for i in temporary_set[:,0]])
 
-        # print(f"lolsad : {np.array(list(point_weights.values()), dtype=object)[:][0][0]}")
-        plt.scatter(points[:, 0], points[:, 1], cmap="g", label="Original")
-        plt.scatter(centers[:, 0], centers[:, 1], cmap="b", label="Coreset")
-        plt.scatter(coreset_points[:,0], coreset_points[:,1], cmap="r", label="Coreset")
-        plt.legend()
-        plt.grid()
-        plt.show()
-        plt.close()
+    print(sum(S_weights))
+    print(S.shape)
+    print(centers.shape)
+    coreset_dist = euclidean_distances(S, centers).min(axis=1)
+    print(coreset_dist.shape)
+    coreset_cost = np.sum(np.power(coreset_dist, 2) * S_weights)
+    print(f"cost: {cost}")
+    print(f"coreset_cost: {coreset_cost}")
+    print(f"bound: {(1-epsilon) * cost} less than {coreset_cost} less than {(1+epsilon) * cost}")
+
+    # print(f"lolsad : {np.array(list(point_weights.values()), dtype=object)[:][0][0]}")
+    plt.scatter(points[:, 0], points[:, 1], cmap="g", label="Original")
+    plt.scatter(centers[:, 0], centers[:, 1], cmap="b", label="Centers")
+    plt.scatter(S[:,0], S[:,1], cmap="r", label="Coreset")
+    plt.legend()
+    plt.grid()
+    plt.show()
+    plt.close()
     
-    return point_weights
+    return S, S_weights
 
 def run_coreset_construction(points, k, epsilon=0.05):
     points = np.array(list(points)) # Needed for parallelization
