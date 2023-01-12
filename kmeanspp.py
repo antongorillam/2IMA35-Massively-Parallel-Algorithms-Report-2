@@ -4,10 +4,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 
-# Implement the coreset construction algorithm
-
-
-def kplusplus(coords, k, show=False):
+def kmeanspp(coords, k, show=False):
     if isinstance(k, int):
         centers, indices = kmeans_plusplus(coords, k)
     else:
@@ -27,5 +24,5 @@ def main():
     plt.grid()
     plt.show()
 
-if __name__ == '__main__':
-    main()
+# if __name__ == '__main__':
+#     main()

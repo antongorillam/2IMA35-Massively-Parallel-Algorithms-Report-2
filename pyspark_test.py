@@ -23,8 +23,8 @@ from dataloader import Dataloader
 def main():
     dl = Dataloader()
     coords, k = dl.get_data("blob", blob_size=1000 ,show=False)
-    rdd = sc.parallelize(coords, 2)
-    centers = rdd.mapPartitions(kmeanspp)
+    rdd = sc.parallelize(coords, 2) 
+    centers = rdd.mapPartitions(lambda x : kmeanspp(x, 3))
     centers, coords = centers.collect()
     # centers, indices = kplusplus(coords, k, show=False)
     # point_weights = coreset_construction(coords, centers)
