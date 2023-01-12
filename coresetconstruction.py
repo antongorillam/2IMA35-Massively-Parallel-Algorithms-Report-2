@@ -2,12 +2,16 @@ from cProfile import label
 from dataloader import Dataloader
 from kmeanspp import kmeanspp
 from sklearn.metrics.pairwise import euclidean_distances
+from pyspark.sql.session import SparkSession
+spark = SparkSession.builder.appName("DFTest").getOrCreate()
+sc = spark.sparkContext
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 
 a = 1
-n = 1000
+n = 100000
+NUM_MACHINES = 6
 
 def coreset_construction(points, centers, epsilon=1e-1):
 
@@ -75,25 +79,25 @@ def coreset_construction(points, centers, epsilon=1e-1):
     temporary_set = np.array(list(point_weights.values()), dtype=object)
     S_weights = np.array([i for i in temporary_set[:,1]])
     S = np.array([i for i in temporary_set[:,0]])
-
-    print(sum(S_weights))
-    print(S.shape)
-    print(centers.shape)
     coreset_dist = euclidean_distances(S, centers).min(axis=1)
-    print(coreset_dist.shape)
     coreset_cost = np.sum(np.power(coreset_dist, 2) * S_weights)
-    print(f"cost: {cost}")
-    print(f"coreset_cost: {coreset_cost}")
-    print(f"bound: {(1-epsilon) * cost} less than {coreset_cost} less than {(1+epsilon) * cost}")
+
+    # print(sum(S_weights))
+    # print(S.shape)
+    # print(centers.shape)
+    # print(coreset_dist.shape)
+    # print(f"cost: {cost}")
+    # print(f"coreset_cost: {coreset_cost}")
+    # print(f"bound: {(1-epsilon) * cost} less than {coreset_cost} less than {(1+epsilon) * cost}")
 
     # print(f"lolsad : {np.array(list(point_weights.values()), dtype=object)[:][0][0]}")
-    plt.scatter(points[:, 0], points[:, 1], cmap="g", label="Original")
-    plt.scatter(centers[:, 0], centers[:, 1], cmap="b", label="Centers")
-    plt.scatter(S[:,0], S[:,1], cmap="r", label="Coreset")
-    plt.legend()
-    plt.grid()
-    plt.show()
-    plt.close()
+    # plt.scatter(points[:, 0], points[:, 1], cmap="g", label="Original")
+    # plt.scatter(centers[:, 0], centers[:, 1], cmap="b", label="Centers")
+    # plt.scatter(S[:,0], S[:,1], cmap="r", label="Coreset")
+    # plt.legend()
+    # plt.grid()
+    # plt.show()
+    # plt.close()
     
     return S, S_weights
 
@@ -101,13 +105,21 @@ def run_coreset_construction(points, k, epsilon=0.05):
     points = np.array(list(points)) # Needed for parallelization
     centers, indices = kmeanspp(points, k, show=False)
     point_weights = coreset_construction(points, centers)
-    print("lol")
+    yield point_weights
 
 def main():
     dl = Dataloader()
     coords, k = dl.get_data("blob", blob_size=n, show=False)
-    run_coreset_construction(coords, k)
-    # point_weights = coreset_construction(coords, centers)
+    d = coords.shape[1]
+    rdd = sc.parallelize(coords, NUM_MACHINES) 
+    centers = rdd.mapPartitions(lambda x : run_coreset_construction(x, 3))
+    point_weights = centers.collect()
+    s, s_weight = np.zeros((0, d)), np.zeros((0, 1))
+    for s_i, s_weight_i in range(point_weights):
+        # print(f"s: {s}, s_weight: {s_weight} ")
+        s = np.concatenate([s, s_i])
+        s_weight = np.concatenate([s_weight, s_weight_i])
 
+    print("öool")
 if __name__ == '__main__':
     main()
