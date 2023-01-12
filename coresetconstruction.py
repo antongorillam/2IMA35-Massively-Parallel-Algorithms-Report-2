@@ -1,3 +1,4 @@
+from cProfile import label
 from dataloader import Dataloader
 from kmeanspp import kmeanspp
 from sklearn.metrics.pairwise import euclidean_distances
@@ -36,9 +37,8 @@ def coreset_construction(points, centers, epsilon=1e-1):
     current_points = points[min_distances < r]
     current_centers = closest_centers[min_distances < r]
     
-    print(f"points: {points.shape}")
-    print(f"min_distances: {min_distances.shape}")
-    print(f"current_centers.shape: {current_centers.shape}")
+    cost = np.sum(np.power(min_distances, 2)) 
+
 
     for i, (point, center_index) in enumerate(zip(current_points, current_centers)):
         c = centers[center_index]
@@ -55,8 +55,8 @@ def coreset_construction(points, centers, epsilon=1e-1):
         distances = euclidean_distances(points, centers)
         closest_centers = np.argmin(distances, 1)
         min_distances = np.min(distances, axis=1)
-        current_points = points[min_distances < 2**j*r and min_distances >= 2**(j-1)*r]
-        current_centers = closest_centers[min_distances < 2**j*r and min_distances >= 2**(j-1)*r]
+        current_points = points[min_distances >= 2**(j-1)*r]
+        current_centers = closest_centers[min_distances >= 2**(j-1)*r]
         
         print(f"points: {points.shape}")
         print(f"min_distances: {min_distances.shape}")
@@ -71,16 +71,23 @@ def coreset_construction(points, centers, epsilon=1e-1):
             else: 
                 point_weights[grid_position] = [point, 1]
                 # print(f"point_weights[grid_position]: {point_weights[grid_position]}")
-        x = np.array(list(point_weights.values()), dtype=object)
-        print(f"lolsad : \n{np.array(x.shape)}")
-        break
-        # # print(f"lolsad : {np.array(list(point_weights.values()), dtype=object)[:][0][0]}")
-        # sns.scatterplot(current_points[:, 0], current_points[:, 1], palette="deep")
-        # plt.scatter(centers[:, 0], centers[:, 1], cmap="b")
-        # plt.scatter(np.array(list(point_weights.values()))[:,0], np.array(list(point_weights.values()))[:,0,1], cmap="r")
-        # plt.grid()
-        # plt.show()
-        # plt.close()
+        coreset_points = np.array(list(point_weights.values()), dtype=object)
+        coreset_weights = np.array([i for i in coreset_points[:,1]])
+        coreset_points = np.array([i for i in coreset_points[:,0]])
+        coreset_dist = euclidean_distances(coreset_points, centers).min(axis=1)
+        coreset_cost = np.sum(np.power(coreset_dist, 2) * coreset_weights) 
+        print(f"cost: {cost}") 
+        print(f"croeset_cost: {coreset_cost}")
+        print(f"bound: {(1-epsilon) * cost} less than {coreset_cost} less than {(1+epsilon) * cost}")  
+
+        # print(f"lolsad : {np.array(list(point_weights.values()), dtype=object)[:][0][0]}")
+        plt.scatter(points[:, 0], points[:, 1], cmap="g", label="Original")
+        plt.scatter(centers[:, 0], centers[:, 1], cmap="b", label="Coreset")
+        plt.scatter(coreset_points[:,0], coreset_points[:,1], cmap="r", label="Coreset")
+        plt.legend()
+        plt.grid()
+        plt.show()
+        plt.close()
     
     return point_weights
 
