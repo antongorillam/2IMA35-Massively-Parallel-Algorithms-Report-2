@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 a = 1
 n = 1000
 
-def coreset_construction(points, centers, epsilon=1e-1):
+def coreset_construction(points, weights, centers, epsilon=1e-1):
 
     point_weights = dict()
     d = points.shape[1]
@@ -33,18 +33,20 @@ def coreset_construction(points, centers, epsilon=1e-1):
     closest_centers = np.argmin(distances, 1)
     min_distances = np.min(distances, axis=1)
     current_points = points[min_distances < r]
+    current_weights = weights[min_distances < r]
     current_centers = closest_centers[min_distances < r]
+
     
     cost = np.sum(np.power(min_distances, 2))
 
-    for i, (point, center_index) in enumerate(zip(current_points, current_centers)):
+    for i, (point, weight, center_index) in enumerate(zip(current_points, current_weights, current_centers)):
         c = centers[center_index]
         grid_position = tuple(np.floor((point)/s))
 
         if grid_position in point_weights:
             point_weights[grid_position][1] += 1
         else: 
-            point_weights[grid_position] = [point, 1]
+            point_weights[grid_position] = [point, weight]
 
 
     for j in range(1, int(z)+1):
@@ -54,6 +56,7 @@ def coreset_construction(points, centers, epsilon=1e-1):
         closest_centers = np.argmin(distances, 1)
         min_distances = np.min(distances, axis=1)
         current_points = points[np.logical_and(min_distances >= 2 ** (j - 1) * r, min_distances < 2 ** j * r)]
+        current_weights = weights[np.logical_and(min_distances >= 2 ** (j - 1) * r, min_distances < 2 ** j * r)]
         current_centers = closest_centers[np.logical_and(min_distances >= 2 ** (j - 1) * r, min_distances < 2 ** j * r)]
 
         if current_points.shape[0] == 0:
@@ -63,14 +66,14 @@ def coreset_construction(points, centers, epsilon=1e-1):
         print(f"min_distances: {min_distances.shape}")
         print(f"current_centers.shape: {current_centers.shape}")
 
-        for i, (point, center_index) in enumerate(zip(current_points, current_centers)):
+        for i, (point, weight, center_index) in enumerate(zip(current_points, current_weights, current_centers)):
             c = centers[center_index]
             grid_position = tuple(np.floor((point)/s))
 
             if grid_position in point_weights:
                 point_weights[grid_position][1] += 1
             else: 
-                point_weights[grid_position] = [point, 1]
+                point_weights[grid_position] = [point, weight]
                 # print(f"point_weights[grid_position]: {point_weights[grid_position]}")
     temporary_set = np.array(list(point_weights.values()), dtype=object)
     S_weights = np.array([i for i in temporary_set[:,1]])
