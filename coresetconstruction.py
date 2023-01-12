@@ -104,24 +104,36 @@ def coreset_construction(points, weights, centers, epsilon=1e-1):
     
     return S, S_weights
 
-def run_coreset_construction(points, k, epsilon=0.05):
-    points = np.array(list(points)) # Needed for parallelization
+def run_coreset_construction(points_weights, k, epsilon=0.05):
+    points_weights = np.array(list(points_weights)) # Needed for parallelization
+    print(f"points_weights: {points_weights.shape}")
+    points, weights = points_weights[:,:1], points_weights[:,1:2]
+    print(f"points: {points.shape}")
+    print(f"weights: {weights.shape}")
+
+    # print(f"weights: {weights}")
+    print(f"points.shape: {points.shape}")
+    print(f"k: {k}")
     centers, indices = kmeanspp(points, k, show=False)
-    point_weights = coreset_construction(points, centers)
-    yield point_weights
+    point_weights = coreset_construction(points, weights, centers)
+    return point_weights
 
 def main():
     dl = Dataloader()
     coords, k = dl.get_data("blob", blob_size=n, show=False)
     d = coords.shape[1]
-    rdd = sc.parallelize(coords, NUM_MACHINES) 
-    centers = rdd.mapPartitions(lambda x : run_coreset_construction(x, 3))
-    point_weights = centers.collect()
+    
+    weights = np.array([1 for _, _ in enumerate(coords)]).reshape(-1, 1)
+    point_weights = np.concatenate([coords, weights], axis=1)
+    rdd = sc.parallelize(point_weights, NUM_MACHINES)
+    
+    points = rdd.mapPartitions(lambda x : run_coreset_construction(x, k=3))
+    point_weights = points.collect()
     s, s_weight = np.zeros((0, d)), np.zeros((0, 1))
-    for s_i, s_weight_i in range(point_weights):
-        # print(f"s: {s}, s_weight: {s_weight} ")
-        s = np.concatenate([s, s_i])
-        s_weight = np.concatenate([s_weight, s_weight_i])
+    # for s_i, s_weight_i in range(point_weights):
+    #     # print(f"s: {s}, s_weight: {s_weight} ")
+    #     s = np.concatenate([s, s_i])
+    #     s_weight = np.concatenate([s_weight, s_weight_i])
 
     print("öool")
 if __name__ == '__main__':
