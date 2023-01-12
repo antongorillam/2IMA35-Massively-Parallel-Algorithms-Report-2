@@ -6,7 +6,6 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-
 a = 1
 n = 1000
 
@@ -106,7 +105,7 @@ def run_coreset_construction(points, k, epsilon=0.05):
 
 def main():
     dl = Dataloader()
-    coords, k = dl.get_data("blob", blob_size=n ,show=False)
+    coords, k = dl.get_data("blob", blob_size=n, show=False)
     run_coreset_construction(coords, k)
     # point_weights = coreset_construction(coords, centers)
 
