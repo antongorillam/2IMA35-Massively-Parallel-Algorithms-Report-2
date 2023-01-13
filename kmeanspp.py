@@ -19,7 +19,7 @@ def kmeanspp(coords, k, show=False):
 def main():
     dl = Dataloader()
     coords, k = dl.get_data("blob", blob_size=10000 ,show=False)
-    centers, indices = kplusplus(coords, k, True)
+    centers, indices = kmeanspp(coords, k, True)
     sns.scatterplot(coords[:, 0], coords[:, 1], k)
     plt.grid()
     plt.show()

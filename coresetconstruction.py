@@ -10,8 +10,8 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 a = 1
-n = 100000
-NUM_MACHINES = 6
+n = 100
+NUM_MACHINES = 5
 
 def coreset_construction(points, weights, centers, epsilon=1e-1):
 
@@ -26,12 +26,12 @@ def coreset_construction(points, weights, centers, epsilon=1e-1):
 
     closest_centers = np.argmin(distances, 1)
     min_distances = np.min(distances, axis=1)
-    print(f"r: {r}")
+    # print(f"r: {r}")
     # I formulated point_weight s.t. its:
     #   key = cord of the center of the grid
     #   value = weight 
 
-    print(f"ITER {0} --------------------------------")
+    # print(f"ITER {0} --------------------------------")
     s = epsilon * r / (np.sqrt(d))
     distances = euclidean_distances(points, centers)
     closest_centers = np.argmin(distances, 1)
@@ -52,9 +52,8 @@ def coreset_construction(points, weights, centers, epsilon=1e-1):
         else: 
             point_weights[grid_position] = [point, weight]
 
-
     for j in range(1, int(z)+1):
-        print(f"ITER {j} --------------------------------")
+        # print(f"ITER {j} --------------------------------")
         s = epsilon * 2**j * r / (np.sqrt(d))
         distances = euclidean_distances(points, centers)
         closest_centers = np.argmin(distances, 1)
@@ -66,9 +65,9 @@ def coreset_construction(points, weights, centers, epsilon=1e-1):
         if current_points.shape[0] == 0:
             break
         
-        print(f"current points: {current_points.shape}")
-        print(f"min_distances: {min_distances.shape}")
-        print(f"current_centers.shape: {current_centers.shape}")
+        # print(f"current points: {current_points.shape}")
+        # print(f"min_distances: {min_distances.shape}")
+        # print(f"current_centers.shape: {current_centers.shape}")
 
         for i, (point, weight, center_index) in enumerate(zip(current_points, current_weights, current_centers)):
             c = centers[center_index]
@@ -78,7 +77,7 @@ def coreset_construction(points, weights, centers, epsilon=1e-1):
                 point_weights[grid_position][1] += 1
             else: 
                 point_weights[grid_position] = [point, weight]
-                # print(f"point_weights[grid_position]: {point_weights[grid_position]}")
+            break
     temporary_set = np.array(list(point_weights.values()), dtype=object)
     S_weights = np.array([i for i in temporary_set[:,1]])
     S = np.array([i for i in temporary_set[:,0]])
@@ -86,14 +85,15 @@ def coreset_construction(points, weights, centers, epsilon=1e-1):
     coreset_cost = np.sum(np.power(coreset_dist, 2) * S_weights)
 
     # print(sum(S_weights))
-    # print(S.shape)
+    # print(f"temporary_set: {temporary_set.shape}")
+    # print(f"point_weights: {point_weights}")
     # print(centers.shape)
     # print(coreset_dist.shape)
     # print(f"cost: {cost}")
     # print(f"coreset_cost: {coreset_cost}")
     # print(f"bound: {(1-epsilon) * cost} less than {coreset_cost} less than {(1+epsilon) * cost}")
-
     # print(f"lolsad : {np.array(list(point_weights.values()), dtype=object)[:][0][0]}")
+
     # plt.scatter(points[:, 0], points[:, 1], cmap="g", label="Original")
     # plt.scatter(centers[:, 0], centers[:, 1], cmap="b", label="Centers")
     # plt.scatter(S[:,0], S[:,1], cmap="r", label="Coreset")
@@ -106,17 +106,15 @@ def coreset_construction(points, weights, centers, epsilon=1e-1):
 
 def run_coreset_construction(points_weights, k, epsilon=0.05):
     points_weights = np.array(list(points_weights)) # Needed for parallelization
-    print(f"points_weights: {points_weights.shape}")
-    points, weights = points_weights[:,:1], points_weights[:,1:2]
-    print(f"points: {points.shape}")
-    print(f"weights: {weights.shape}")
-
-    # print(f"weights: {weights}")
-    print(f"points.shape: {points.shape}")
-    print(f"k: {k}")
+    points, weights = points_weights[:,:2], points_weights[:,2:3]
     centers, indices = kmeanspp(points, k, show=False)
-    point_weights = coreset_construction(points, weights, centers)
-    return point_weights
+    new_point, new_weight = coreset_construction(points, weights, centers)
+    new_point_weight = np.concatenate([new_point, new_weight], axis=1)
+    # print(f"new point and weight: {new_point.shape}, {new_weight.shape}")
+    # print(f"new_point_weight: {new_point_weight}")
+    # print(f"new_point_weight[:,2].sum(): {new_point_weight[:,2].sum()}")
+    print(f"new_point_weight {new_point_weight.shape}")
+    return new_point_weight
 
 def main():
     dl = Dataloader()
@@ -127,14 +125,15 @@ def main():
     point_weights = np.concatenate([coords, weights], axis=1)
     rdd = sc.parallelize(point_weights, NUM_MACHINES)
     
-    points = rdd.mapPartitions(lambda x : run_coreset_construction(x, k=3))
+    points = rdd.mapPartitions(lambda x : run_coreset_construction(x, k=3), preservesPartitioning=True)
     point_weights = points.collect()
     s, s_weight = np.zeros((0, d)), np.zeros((0, 1))
+    
     # for s_i, s_weight_i in range(point_weights):
     #     # print(f"s: {s}, s_weight: {s_weight} ")
     #     s = np.concatenate([s, s_i])
     #     s_weight = np.concatenate([s_weight, s_weight_i])
-
     print("öool")
+
 if __name__ == '__main__':
     main()
