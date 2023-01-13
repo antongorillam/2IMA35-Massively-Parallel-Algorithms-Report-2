@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 
 a = 1
 n = 100
+k = 3
 NUM_MACHINES = 5
 
 def coreset_construction(points, weights, centers, epsilon=1e-1):
@@ -102,9 +103,10 @@ def coreset_construction(points, weights, centers, epsilon=1e-1):
     # plt.show()
     # plt.close()
     
-    return S, S_weights
+    yield S, S_weights
 
-def run_coreset_construction(points_weights, k, epsilon=0.05):
+def run_coreset_construction(split_index, points_weights, k=k, epsilon=0.05):
+    
     points_weights = np.array(list(points_weights)) # Needed for parallelization
     points, weights = points_weights[:,:2], points_weights[:,2:3]
     centers, indices = kmeanspp(points, k, show=False)
@@ -114,7 +116,8 @@ def run_coreset_construction(points_weights, k, epsilon=0.05):
     # print(f"new_point_weight: {new_point_weight}")
     # print(f"new_point_weight[:,2].sum(): {new_point_weight[:,2].sum()}")
     print(f"new_point_weight {new_point_weight.shape}")
-    return new_point_weight
+    print(f"split_index {split_index}")
+    yield split_index, new_point_weight
 
 def main():
     dl = Dataloader()
@@ -125,14 +128,14 @@ def main():
     point_weights = np.concatenate([coords, weights], axis=1)
     rdd = sc.parallelize(point_weights, NUM_MACHINES)
     
-    points = rdd.mapPartitions(lambda x : run_coreset_construction(x, k=3), preservesPartitioning=True)
-    point_weights = points.collect()
-    s, s_weight = np.zeros((0, d)), np.zeros((0, 1))
+    points = rdd.mapPartitionsWithIndex(run_coreset_construction, preservesPartitioning=True)
+    points_out = points.collect()
+    s, s_weight = np.zeros((NUM_MACHINES, d)), np.zeros((0, 1))
     
-    # for s_i, s_weight_i in range(point_weights):
-    #     # print(f"s: {s}, s_weight: {s_weight} ")
-    #     s = np.concatenate([s, s_i])
-    #     s_weight = np.concatenate([s_weight, s_weight_i])
+    for s_i, s_weight_i in range(point_weights):
+        # print(f"s: {s}, s_weight: {s_weight} ")
+        s = np.concatenate([s, s_i])
+        s_weight = np.concatenate([s_weight, s_weight_i])
     print("öool")
 
 if __name__ == '__main__':
