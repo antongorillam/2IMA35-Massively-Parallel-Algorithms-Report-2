@@ -1,4 +1,3 @@
-from cProfile import label
 from dataloader import Dataloader
 from kmeanspp import kmeanspp
 from sklearn.metrics.pairwise import euclidean_distances
@@ -8,14 +7,16 @@ sc = spark.sparkContext
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+import itertools
 
 a = 1
-n = 100
+n = 1000000
 k = 3
-NUM_MACHINES = 5
+EPSILON = 1e-1
+NUM_MACHINES = [16, 8, 4, 2]
 
 def coreset_construction(points, weights, centers, epsilon=1e-1):
-
+    
     point_weights = dict()
     d = points.shape[1]
 
@@ -27,12 +28,6 @@ def coreset_construction(points, weights, centers, epsilon=1e-1):
 
     closest_centers = np.argmin(distances, 1)
     min_distances = np.min(distances, axis=1)
-    # print(f"r: {r}")
-    # I formulated point_weight s.t. its:
-    #   key = cord of the center of the grid
-    #   value = weight 
-
-    # print(f"ITER {0} --------------------------------")
     s = epsilon * r / (np.sqrt(d))
     distances = euclidean_distances(points, centers)
     closest_centers = np.argmin(distances, 1)
@@ -49,12 +44,11 @@ def coreset_construction(points, weights, centers, epsilon=1e-1):
         grid_position = tuple(np.floor((point)/s))
 
         if grid_position in point_weights:
-            point_weights[grid_position][1] += 1
+            point_weights[grid_position][1] += weight
         else: 
             point_weights[grid_position] = [point, weight]
 
     for j in range(1, int(z)+1):
-        # print(f"ITER {j} --------------------------------")
         s = epsilon * 2**j * r / (np.sqrt(d))
         distances = euclidean_distances(points, centers)
         closest_centers = np.argmin(distances, 1)
@@ -75,10 +69,10 @@ def coreset_construction(points, weights, centers, epsilon=1e-1):
             grid_position = tuple(np.floor((point)/s))
 
             if grid_position in point_weights:
-                point_weights[grid_position][1] += 1
+                point_weights[grid_position][1] += weight
             else: 
                 point_weights[grid_position] = [point, weight]
-            break
+        
     temporary_set = np.array(list(point_weights.values()), dtype=object)
     S_weights = np.array([i for i in temporary_set[:,1]])
     S = np.array([i for i in temporary_set[:,0]])
@@ -103,40 +97,59 @@ def coreset_construction(points, weights, centers, epsilon=1e-1):
     # plt.show()
     # plt.close()
     
-    yield S, S_weights
+    return S, S_weights
 
-def run_coreset_construction(split_index, points_weights, k=k, epsilon=0.05):
-    
-    points_weights = np.array(list(points_weights)) # Needed for parallelization
+def run_coreset_construction(i, points_weights, k=k, epsilon=EPSILON):
+    points_weights = np.array(list(points_weights))[0] # Needed for parallelization
     points, weights = points_weights[:,:2], points_weights[:,2:3]
     centers, indices = kmeanspp(points, k, show=False)
-    new_point, new_weight = coreset_construction(points, weights, centers)
+    new_point, new_weight = coreset_construction(points, weights, centers, epsilon=epsilon)
     new_point_weight = np.concatenate([new_point, new_weight], axis=1)
-    # print(f"new point and weight: {new_point.shape}, {new_weight.shape}")
-    # print(f"new_point_weight: {new_point_weight}")
-    # print(f"new_point_weight[:,2].sum(): {new_point_weight[:,2].sum()}")
-    print(f"new_point_weight {new_point_weight.shape}")
-    print(f"split_index {split_index}")
-    yield split_index, new_point_weight
+    yield i, new_point_weight
+
+def mapper_assign_index(element, num_machines):
+    index = np.random.randint(num_machines)
+    return (index, element)
+
+def coreset_construction_parallel(coords):
+    weights = np.array([1 for _, _ in enumerate(coords)]).reshape(-1, 1)
+    point_weights = np.concatenate([coords, weights], axis=1)
+    # Assign indices to machines
+    index_rdd = sc.parallelize(point_weights, NUM_MACHINES[0])\
+        .zipWithIndex()\
+        .map(lambda x : [x[0], x[1] % NUM_MACHINES[0]])
+    mapped_points = np.array(index_rdd.collect())
+
+    coreset = []
+    # Split it so each indivdual machine is in a list
+    for machine_index in range(NUM_MACHINES[0]):
+        filtered_points = mapped_points[mapped_points[:,1] == machine_index]
+        filtered_points = np.array([list(i[0]) for i in filtered_points])
+        coreset.append(filtered_points)
+
+    for num_machines in NUM_MACHINES:
+        rdd = sc.parallelize(coreset, num_machines)
+        points = rdd.mapPartitionsWithIndex(run_coreset_construction, preservesPartitioning=True).collect()
+
+        # Merge every adjecent
+        coreset = np.array([np.concatenate([points[i][1], points[i+1][1]], axis=0) for i in range(0, len(points), 2)])
+    return coreset[0]
 
 def main():
     dl = Dataloader()
     coords, k = dl.get_data("blob", blob_size=n, show=False)
     d = coords.shape[1]
+    coreset = coreset_construction_parallel(coords)
+
+    print(f"sum of all weights {coreset[:,2].sum()} and the total sum of all points {coords.shape[0]}")
+    print(f"coords size: {coords.shape[0]}, coreset size: {coreset.shape[0]}")
+    plt.scatter(coords[:,0], coords[:,1], cmap="r", label="Original")
+    plt.scatter(coreset[:, 0], coreset[:, 1], cmap="r", label="Coreset")
+    plt.legend()
+    plt.grid()
+    plt.show()
+    plt.close()
     
-    weights = np.array([1 for _, _ in enumerate(coords)]).reshape(-1, 1)
-    point_weights = np.concatenate([coords, weights], axis=1)
-    rdd = sc.parallelize(point_weights, NUM_MACHINES)
-    
-    points = rdd.mapPartitionsWithIndex(run_coreset_construction, preservesPartitioning=True)
-    points_out = points.collect()
-    s, s_weight = np.zeros((NUM_MACHINES, d)), np.zeros((0, 1))
-    
-    for s_i, s_weight_i in range(point_weights):
-        # print(f"s: {s}, s_weight: {s_weight} ")
-        s = np.concatenate([s, s_i])
-        s_weight = np.concatenate([s_weight, s_weight_i])
-    print("öool")
 
 if __name__ == '__main__':
     main()
