@@ -12,7 +12,7 @@ class Dataloader():
     def __init__(self):
         pass
 
-    def get_data(self, data_name, blob_size=None, show=False):
+    def get_data(self, data_name, blob_size=None, k=3, show=False):
         if data_name=="lena":
             lena_img = Image.open(LENA_IMAGE_PATH)
             lena = np.array(lena_img)
@@ -30,7 +30,8 @@ class Dataloader():
             return baboon, 0
 
         elif data_name=="blob":
-            coords, labels = datasets.make_blobs(n_samples=blob_size, centers=3, n_features=2, cluster_std=2, center_box=(-20, 20), random_state=42)
+            # , center_box=(-20, 20)
+            coords, labels = datasets.make_blobs(n_samples=blob_size, centers=k, n_features=2, cluster_std=2, center_box=(-30, 30), random_state=42)
             sns.scatterplot(coords[:,0], coords[:,1], labels)
             if show:
                 plt.grid()
