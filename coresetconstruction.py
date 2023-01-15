@@ -244,59 +244,16 @@ def experiment_3():
     # TODO: Anton will design this experiment for parallel vs non-parallel
     pass
 
-def experiment_3():
+def experiment_4():
     # TODO: Anton will design this experiment for coreset vs non-coreset (maybe on image segmantion) 
+    
     pass
 
 def main():
-    experiment_1()
-
-
-    # time_start = time.time()
-    # dl = Dataloader()
-    # coords, labels = dl.get_data("blob", blob_size=n, show=False)
-    # blob_clustering(coords, k=k, mode="parallel" ,show=True)
-    # time_end = time.time()
-    # print(f"It took {time_end - time_start}")
-    # d = coords.shape[1]
-    # coreset, coreset_weight = coreset_construction_parallel(coords)
-
-    # print(f"sum of all weights {coreset_weight.sum()} and the total sum of all points {coords.shape[0]}")
-    # print(f"coords size: {coords.shape[0]}, coreset size: {coreset.shape[0]}")
-    # plt.scatter(coords[:,0], coords[:,1], cmap="r", label="Original")
-    # plt.scatter(coreset[:, 0], coreset[:, 1], cmap="r", label="Coreset")
-    # plt.legend()
-    # plt.grid()
-    # plt.show()
-    # plt.close()
-    
-    # coords, labels = dl.get_data("lena")
-    # image_segmentation(coords, mode="non-parallel", k=k, epsilon=EPSILON)
-
-    # for N_SAMPLES in N_SAMPLES_LIST:
-    #     n = N_SAMPLES
-    #     for EPSILON_SAMPLE in EPSILON_LIST:
-    #         epsilon = EPSILON_SAMPLE
-    #         for K_SAMPLE in K_LIST:
-    #             k = K_SAMPLE
-    #             coords, labels = dl.get_data("blob", blob_size=n, k=k, show=False)
-    #             d = coords.shape[1]
-    #
-    #             weights = np.array([1 for _, _ in enumerate(coords)]).reshape(-1, 1)
-    #
-    #             point_weights = np.concatenate([coords, weights], axis=1)
-    #             run_coreset_construction(point_weights, k=k, epsilon=epsilon, show=True)
-    # rdd = sc.parallelize(point_weights, NUM_MACHINES)
-    #
-    # points = rdd.mapPartitionsWithIndex(run_coreset_construction, preservesPartitioning=True)
-    # points_out = points.collect()
-    # s, s_weight = np.zeros((NUM_MACHINES, d)), np.zeros((0, 1))
-    #
-    # for s_i, s_weight_i in range(point_weights):
-    #     # print(f"s: {s}, s_weight: {s_weight} ")
-    #     s = np.concatenate([s, s_i])
-    #     s_weight = np.concatenate([s_weight, s_weight_i])
-    # print("öool")
+    # experiment_1()
+    # experiment_2()
+    # experiment_3()
+    experiment_4()
 
 if __name__ == '__main__':
     main()
