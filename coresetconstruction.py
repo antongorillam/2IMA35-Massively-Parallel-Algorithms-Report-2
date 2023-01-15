@@ -9,7 +9,7 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
-    
+import time
 
 a = 1
 n = 50000
@@ -18,12 +18,12 @@ EPSILON_LIST = [1e-3, 1e-2, 0.05, 1e-1, 0.5]
 K_LIST = [3, 4, 5, 6, 7, 8]
 k = 3
 NUM_MACHINES = [16, 8, 4, 2]
-EPSILON = 0.1
+# EPSILON = 0.1
 
 PLOT_FOLDER = "plots"
 
 
-def coreset_construction(points, weights, centers, epsilon=EPSILON):
+def coreset_construction(points, weights, centers, epsilon=0.1):
     point_weights = dict()
     d = points.shape[1]
 
@@ -88,58 +88,55 @@ def coreset_construction(points, weights, centers, epsilon=EPSILON):
 
     return S, S_weights
 
-def run_coreset_construction_nonparallel(points_weights, k=k, epsilon=EPSILON, show=False):
+def blob_clustering(points_weights, k=k, epsilon=0.1, mode="non-parallel", show=False, path=None):
+    
+    start_time = time.time()
     points, weights = points_weights[:,:2], points_weights[:,2:3]
-    centers, indices = kmeanspp(points, k, show=False)
-    coreset_points, coreset_weights = coreset_construction(points, weights, centers)
-    kmeans_normal = KMeans(n_clusters=k, random_state=42).fit(points)
+    initial_centers, indices = kmeanspp(points, k, show=False)
+    if mode=="non-parallel":
+        coreset_points, coreset_weights = coreset_construction(points, weights, initial_centers)
+    elif mode=="parallel":
+        coreset_points, coreset_weights = coreset_construction_parallel(points)
+    
+    # print(f"coreset_points: {coreset_points.shape}")
+    # print(f"k: {k}")
+    # kmeans_normal = KMeans(n_clusters=k, random_state=42).fit(points)
     kmeans_coreset = KMeans(n_clusters=k, random_state=42).fit(coreset_points)
+    final_centers = kmeans_coreset.cluster_centers_
 
-    normal_centers = kmeans_normal.cluster_centers_
+    center_labels = np.argmin(euclidean_distances(points, final_centers), 1)
 
-    coreset_centers = kmeans_coreset.cluster_centers_
-    coreset_center_labels = kmeans_coreset.labels_
+    # normal_centers = kmeans_normal.cluster_centers_
 
-    coreset_dist = euclidean_distances(coreset_points, centers).min(axis=1)
-    coreset_cost = np.sum(np.power(coreset_dist, 2) * coreset_weights)
+    # final_centers = kmeans_coreset.cluster_centers_
+    # coreset_center_labels = kmeans_coreset.labels_
 
-    new_coreset_distances = euclidean_distances(coreset_points, coreset_centers)
-    new_closest_centers = np.argmin(new_coreset_distances, 1)
+    # coreset_dist = euclidean_distances(coreset_points, centers).min(axis=1)
+    # coreset_cost = np.sum(np.power(coreset_dist, 2) * coreset_weights)
+
+    # new_coreset_distances = euclidean_distances(coreset_points, final_centers)
+    # new_closest_centers = np.argmin(new_coreset_distances, 1)
 
     if show:
         point_data = {
             "x": points[:, 0],
             "y": points[:, 1],
-            "label": kmeans_normal.labels_
+            "label": center_labels
         }
 
         center_data = {
-            "x": normal_centers[:, 0],
-            "y": normal_centers[:, 1]
-        }
-
-        coreset_point_data = {
-            "x": coreset_points[:, 0],
-            "y": coreset_points[:, 1],
-            "label": coreset_center_labels
-        }
-
-        coreset_center_data = {
-            "x": coreset_centers[:, 0],
-            "y": coreset_centers[:, 1],
-            "label": [i for i in range(len(coreset_centers))]
+            "x": final_centers[:, 0],
+            "y": final_centers[:, 1]
         }
 
         df_normal = pd.DataFrame(point_data)
         df_centers = pd.DataFrame(center_data)
-        df_coreset = pd.DataFrame(coreset_point_data)
-        df_coreset_centers = pd.DataFrame(coreset_center_data)
 
-        # plt.figure()
+        plt.figure()
         # plt.grid()
-        # palette1 = sns.dark_palette("seagreen", k)
+        palette1 = sns.dark_palette("seagreen", k)
         # palette2 = sns.color_palette("deep", k)
-        # sns.scatterplot(data=df_normal, x="x", y="y", hue="label", palette=palette1, legend=False)
+        sns.scatterplot(data=df_normal, x="x", y="y", hue="label", palette=palette1, legend=False)
         # sns.scatterplot(data=df_coreset, x="x", y="y", hue="label", palette=palette1)
         # sns.scatterplot(data=df_centers, x="x", y="y", palette="red")
         # sns.scatterplot(data=df_coreset_centers, x="x", y="y", legend=False)
@@ -148,18 +145,18 @@ def run_coreset_construction_nonparallel(points_weights, k=k, epsilon=EPSILON, s
         # plt.scatter(centers[:, 0], centers[:, 1], cmap="b", label="Original centers")
         # plt.scatter(coreset_points[:,0], coreset_points[:,1], cmap="r", label="Coreset")
         # plt.scatter(coreset_centers[:, 0], coreset_centers[:, 1], cmap="r", label="Coreset centers")
-        # title = f"Coreset Points with k={k}_e={epsilon}_n={n} - Non-parallel"
-        # plt.title(title)
-        #
-        # file_title = f"Coreset_points_non_parallel_k={k}_e={epsilon}_n={n}"
-        # file_name = PLOT_FOLDER + "/" + file_title + ".png"
-        # plt.grid()
-        #
-        # plt.savefig(file_name)
+        tot_time = time.time() - start_time
+        
+        file_title = f"cluster_{mode}_k={k}_e={epsilon}_n={n}_coresetsize={len(coreset_points)}, time={tot_time:.1f}"
+        plt.title(file_title)
+        sns.set_style("white")
+        file_name = path + "/" + file_title + ".png"
+        plt.grid()
+        plt.savefig(file_name)
         # plt.show()
         # plt.close()
 
-def image_segmentation(image_array, mode="non-parallel" ,k=k, epsilon=EPSILON, show=False):
+def image_segmentation(image_array, mode="non-parallel" ,k=k, epsilon=0.1, show=False):
     # Reshaping the image into a 2D array of pixels and 3 color values (RGB)
     pixel_vals = image_array.reshape((-1, 3))
 
@@ -187,7 +184,7 @@ def image_segmentation(image_array, mode="non-parallel" ,k=k, epsilon=EPSILON, s
     plt.imshow(segmented_image)
     plt.show()
 
-def run_coreset_construction(i, points_weights, k=k, epsilon=EPSILON):
+def run_coreset_construction(i, points_weights, k=k, epsilon=0.1):
     points_weights = np.array(list(points_weights))[0] # Needed for parallelization
     d = points_weights.shape[1] - 1
     points, weights = points_weights[:,:d], points_weights[:,d:d+1]
@@ -198,11 +195,8 @@ def run_coreset_construction(i, points_weights, k=k, epsilon=EPSILON):
     # print(f"new_point_weight: {new_point_weight.shape}")
     yield i, new_point_weight
 
-def mapper_assign_index(element, num_machines):
-    index = np.random.randint(num_machines)
-    return (index, element)
-
 def coreset_construction_parallel(coords):
+
     weights = np.array([1 for _, _ in enumerate(coords)]).reshape(-1, 1)
     point_weights = np.concatenate([coords, weights], axis=1)
     # Assign indices to machines
@@ -229,9 +223,41 @@ def coreset_construction_parallel(coords):
     S, S_weights = coreset[:,:d], coreset[:,d:d+1]
     return S, S_weights
 
+def experiment_1():
+    n_samples_list = [1000] #, 5000, 10000, 50000, 100000, 500000, 1000000]
+    epsilon_list = [1e-3] #, 1e-2, 0.05, 1e-1, 0.5]
+    k_list = [3] #, 4, 5, 6, 7, 8]
+    k = 3
+    PLOT_FOLDER = "images/"
+    for n in n_samples_list:
+        for epsilon in epsilon_list:
+            for k in k_list:
+                dl = Dataloader()
+                coords, labels = dl.get_data("blob", k=k, blob_size=n, show=False)
+                blob_clustering(coords, epsilon=epsilon, k=k, mode="parallel", show=True, path=PLOT_FOLDER)
+
+def experiment_2():
+    # TODO: Jonas will design this experiment for image segmentation
+    pass
+    
+def experiment_3():
+    # TODO: Anton will design this experiment for parallel vs non-parallel
+    pass
+
+def experiment_3():
+    # TODO: Anton will design this experiment for coreset vs non-coreset (maybe on image segmantion) 
+    pass
+
 def main():
-    dl = Dataloader()
-    # coords, k = dl.get_data("blob", blob_size=n, show=False)
+    experiment_1()
+
+
+    # time_start = time.time()
+    # dl = Dataloader()
+    # coords, labels = dl.get_data("blob", blob_size=n, show=False)
+    # blob_clustering(coords, k=k, mode="parallel" ,show=True)
+    # time_end = time.time()
+    # print(f"It took {time_end - time_start}")
     # d = coords.shape[1]
     # coreset, coreset_weight = coreset_construction_parallel(coords)
 
@@ -244,8 +270,8 @@ def main():
     # plt.show()
     # plt.close()
     
-    coords, labels = dl.get_data("lena")
-    image_segmentation(coords, mode="non-parallel", k=k, epsilon=EPSILON)
+    # coords, labels = dl.get_data("lena")
+    # image_segmentation(coords, mode="non-parallel", k=k, epsilon=EPSILON)
 
     # for N_SAMPLES in N_SAMPLES_LIST:
     #     n = N_SAMPLES
@@ -259,7 +285,7 @@ def main():
     #             weights = np.array([1 for _, _ in enumerate(coords)]).reshape(-1, 1)
     #
     #             point_weights = np.concatenate([coords, weights], axis=1)
-    #             run_coreset_construction_nonparallel(point_weights, k=k, epsilon=epsilon, show=True)
+    #             run_coreset_construction(point_weights, k=k, epsilon=epsilon, show=True)
     # rdd = sc.parallelize(point_weights, NUM_MACHINES)
     #
     # points = rdd.mapPartitionsWithIndex(run_coreset_construction, preservesPartitioning=True)
