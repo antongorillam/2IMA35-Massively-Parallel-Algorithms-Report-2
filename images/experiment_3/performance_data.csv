@@ -1,5 +1,0 @@
-,n_samples_list,epsilon,k,mode,execution time,number of machines,n
-0,,0.001,3,parallel,7.1162638664245605,4,1000.0
-1,,0.001,3,non_parallel,0.16829371452331543,4,1000.0
-2,,0.001,4,parallel,0.9932491779327393,4,1000.0
-3,,0.001,4,non_parallel,0.11138463020324707,4,1000.0

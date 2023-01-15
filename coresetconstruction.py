@@ -155,7 +155,7 @@ def blob_clustering(points_weights, k=k, epsilon=0.1, mode="non-parallel", show=
         plt.savefig(file_name)
         # plt.show()
         # plt.close()
-        return tot_time
+        return tot_time, len(coreset_points)
 
 def image_segmentation(image_array, mode="non-parallel" ,k=k, epsilon=0.1, show=False, path=None):
     # Reshaping the image into a 2D array of pixels and 3 color values (RGB)
@@ -173,7 +173,9 @@ def image_segmentation(image_array, mode="non-parallel" ,k=k, epsilon=0.1, show=
     elif mode=="parallel":
         coreset_points, coreset_weights = coreset_construction_parallel(pixel_vals)
     elif mode=="no-coreset":
-        pass
+        coreset_points = pixel_vals
+    else:
+        raise f"Mode: {mode} is not valid."
 
     kmeans_coreset = KMeans(n_clusters=k, random_state=42).fit(coreset_points)
     coreset_centers = kmeans_coreset.cluster_centers_
@@ -210,7 +212,7 @@ def coreset_construction_parallel(coords):
     index_rdd = sc.parallelize(point_weights, NUM_MACHINES[0])\
         .zipWithIndex()\
         .map(lambda x : [x[0], x[1] % NUM_MACHINES[0]])
-    mapped_points = np.array(index_rdd.collect())
+    mapped_points = np.array(index_rdd.collect(), dtype=object)
 
     coreset = []
     # Split it so each indivdual machine is in a list
@@ -250,51 +252,65 @@ def experiment_2():
     pass
     
 def experiment_3():
-    n_samples_list = [1000] #, 5000, 10000, 50000, 100000, 500000, 1000000]
-    epsilon_list = [1e-3] #, 1e-2, 0.05, 1e-1, 0.5]
-    k_list = [3, 4] #, 5, 6, 7, 8]
+    n_samples_list = [1000, 5000, 10000, 50000, 100000, 500000, 1000000]
+    epsilon_list = [1e-3, 1e-2, 0.05, 1e-1, 0.5]
+    k_list = [3, 5]
+    total_runs = len(n_samples_list) * len(epsilon_list) * len(k_list)
+    iter = 0
     df = pd.DataFrame(
-        columns=["n_samples_list", "epsilon", "k", "mode", "execution time", "number of machines"]
+        columns=["n_samples", "epsilon", "k", "mode", "execution time", "number of machines"]
     )
     PLOT_FOLDER = "images/experiment_3/"
+    start_time = time.time()
     for n in n_samples_list:
         for epsilon in epsilon_list:
             for k in k_list:
+                iter += 1
+                time_elapsed = time.strftime("%H:%M:%S", time.gmtime(time.time() - start_time))
+                print(f"run {iter}/{total_runs}, time elapsed {time_elapsed}")
                 dl = Dataloader()
                 coords, _ = dl.get_data("blob", k=k, blob_size=n, show=False)
-                tot_time_parallel = blob_clustering(coords, epsilon=epsilon, k=k, mode="parallel", show=True, path=PLOT_FOLDER)
-                tot_time_normal = blob_clustering(coords, epsilon=epsilon, k=k, mode="non-parallel", show=True, path=PLOT_FOLDER)
+                tot_time_parallel, coreset_size = blob_clustering(coords, epsilon=epsilon, k=k, mode="parallel", show=True, path=PLOT_FOLDER)
+                tot_time_normal, _ = blob_clustering(coords, epsilon=epsilon, k=k, mode="non-parallel", show=True, path=PLOT_FOLDER)
                 df = df.append(
-                    {"n":n ,"epsilon":epsilon, "k":k, "mode":"parallel", "execution time":tot_time_parallel, "number of machines":NUM_MACHINES[0]},
+                    {"n_samples":n ,"epsilon":epsilon, "k":k, "coreset size":coreset_size, "mode":"parallel", "execution time":tot_time_parallel, "number of machines":NUM_MACHINES[0]},
                     ignore_index=True)
                 df = df.append(
-                    {"n":n ,"epsilon":epsilon, "k":k, "mode":"non_parallel", "execution time":tot_time_normal, "number of machines":NUM_MACHINES[0]},
+                    {"n_samples":n ,"epsilon":epsilon, "k":k, "coreset size":None , "mode":"non-parallel", "execution time":tot_time_normal, "number of machines":NUM_MACHINES[0]},
                     ignore_index=True)
 
     df.to_csv(PLOT_FOLDER + "performance_data.csv")
 
 def experiment_4():
-    # Experiment for coreset vs non-coreset (maybe on image segmantion) 
-    epsilon_list = [1e-3] #, 1e-2, 5e-2, 1e-1, 5e-1]
-    k_list = [2,3]
+# Experiment for coreset vs non-coreset (maybe on image segmantion) 
+    epsilon_list = [1e-3, 1e-2, 5e-2, 1e-1, 5e-1]
+    k_list = [2, 3, 5, 10, 15, 20, 30]
     DATASET_NAME = ["lena", "baboon"]
+    total_runs = len(DATASET_NAME) * len(epsilon_list) * len(k_list)
+    iter = 0
+    
     df = pd.DataFrame(
         columns=["dataset", "epsilon", "k", "mode", "execution time", "number of machines"]
     )
-    # TODO: Wrong, it should be non-coreset vs coreset, not parallel, vs non-parallel
+
+    start_time = time.time()
     for dataset in DATASET_NAME:
-        PLOT_FOLDER = f"images/experiment_4/{dataset}_"
+        PLOT_FOLDER = f"images/experiment_4/"
         for epsilon in epsilon_list:
             for k in k_list:
+                iter += 1
+                time_elapsed = time.strftime("%H:%M:%S", time.gmtime(time.time() - start_time))
+                print(f"run {iter}/{total_runs}, time elapsed {time_elapsed}, k {k}, epsilon {epsilon}, dataset {dataset}")
+                
                 dl = Dataloader()
                 coords, _ = dl.get_data(dataset, k=k, blob_size=n, show=False)
-                tot_time_parallel = image_segmentation(coords, epsilon=epsilon, k=k, mode="parallel", show=True, path=PLOT_FOLDER)
-                tot_time_normal = image_segmentation(coords, epsilon=epsilon, k=k, mode="non-parallel", show=True, path=PLOT_FOLDER)
+                tot_time_parallel = image_segmentation(coords, epsilon=epsilon, k=k, mode="parallel", show=True, path=PLOT_FOLDER + f"/{dataset}_")
+                tot_time_normal = image_segmentation(coords, epsilon=epsilon, k=k, mode="no-coreset", show=True, path=PLOT_FOLDER + f"/{dataset}_")
                 df = df.append(
-                    {"dataset":dataset ,"epsilon":epsilon, "k":k, "mode":"parallel", "execution time":tot_time_parallel, "number of machines":NUM_MACHINES[0]},
+                    {"dataset":dataset, "epsilon":epsilon, "k":k, "mode":"parallel", "execution time":tot_time_parallel, "number of machines":NUM_MACHINES[0]},
                     ignore_index=True)
                 df = df.append(
-                    {"dataset":dataset ,"epsilon":epsilon, "k":k, "mode":"non_parallel", "execution time":tot_time_normal, "number of machines":NUM_MACHINES[0]},
+                    {"dataset":dataset, "epsilon":epsilon, "k":k, "mode":"no-coreset", "execution time":tot_time_normal, "number of machines":NUM_MACHINES[0]},
                     ignore_index=True)
 
     df.to_csv(PLOT_FOLDER + "performance_data.csv")
@@ -302,8 +318,8 @@ def experiment_4():
 def main():
     # experiment_1()
     # experiment_2()
-    experiment_3()
-    # experiment_4()
+    # experiment_3()
+    experiment_4()
 
 if __name__ == '__main__':
     main()
