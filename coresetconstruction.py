@@ -66,10 +66,6 @@ def coreset_construction(points, weights, centers, epsilon=0.1):
 
         if current_points.shape[0] == 0:
             break
-        
-        # print(f"current points: {current_points.shape}")
-        # print(f"min_distances: {min_distances.shape}")
-        # print(f"current_centers.shape: {current_centers.shape}")
 
         for i, (point, weight, center_index) in enumerate(zip(current_points, current_weights, current_centers)):
             c = centers[center_index]
@@ -97,25 +93,11 @@ def blob_clustering(points_weights, k=k, epsilon=0.1, mode="non-parallel", show=
         coreset_points, coreset_weights = coreset_construction(points, weights, initial_centers)
     elif mode=="parallel":
         coreset_points, coreset_weights = coreset_construction_parallel(points)
-    
-    # print(f"coreset_points: {coreset_points.shape}")
-    # print(f"k: {k}")
-    # kmeans_normal = KMeans(n_clusters=k, random_state=42).fit(points)
+
     kmeans_coreset = KMeans(n_clusters=k, random_state=42).fit(coreset_points)
     final_centers = kmeans_coreset.cluster_centers_
 
     center_labels = np.argmin(euclidean_distances(points, final_centers), 1)
-
-    # normal_centers = kmeans_normal.cluster_centers_
-
-    # final_centers = kmeans_coreset.cluster_centers_
-    # coreset_center_labels = kmeans_coreset.labels_
-
-    # coreset_dist = euclidean_distances(coreset_points, centers).min(axis=1)
-    # coreset_cost = np.sum(np.power(coreset_dist, 2) * coreset_weights)
-
-    # new_coreset_distances = euclidean_distances(coreset_points, final_centers)
-    # new_closest_centers = np.argmin(new_coreset_distances, 1)
 
     if show:
         point_data = {
@@ -153,8 +135,7 @@ def blob_clustering(points_weights, k=k, epsilon=0.1, mode="non-parallel", show=
         file_name = path + "/" + file_title + ".png"
         plt.grid()
         plt.savefig(file_name)
-        # plt.show()
-        # plt.close()
+        
         return tot_time, len(coreset_points)
 
 def image_segmentation(image_array, mode="non-parallel" ,k=k, epsilon=0.1, show=False, path=None):
@@ -253,8 +234,8 @@ def experiment_2():
     
 def experiment_3():
     n_samples_list = [1000, 5000, 10000, 50000, 100000, 500000, 1000000]
-    epsilon_list = [1e-3, 1e-2, 0.05, 1e-1, 0.5]
-    k_list = [3, 5]
+    epsilon_list = [1e-3, 1e-2, 1e-1]
+    k_list = [15]
     total_runs = len(n_samples_list) * len(epsilon_list) * len(k_list)
     iter = 0
     df = pd.DataFrame(
@@ -318,8 +299,8 @@ def experiment_4():
 def main():
     # experiment_1()
     # experiment_2()
-    # experiment_3()
-    experiment_4()
+    experiment_3()
+    # experiment_4()
 
 if __name__ == '__main__':
     main()
