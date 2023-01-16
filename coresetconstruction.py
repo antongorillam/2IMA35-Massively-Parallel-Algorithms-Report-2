@@ -155,6 +155,7 @@ def image_segmentation(image_array, mode="non-parallel" ,k=k, epsilon=0.1, show=
         coreset_points, coreset_weights = coreset_construction_parallel(pixel_vals)
     elif mode=="no-coreset":
         coreset_points = pixel_vals
+        coreset_weights = None
     else:
         raise f"Mode: {mode} is not valid."
 
@@ -172,7 +173,7 @@ def image_segmentation(image_array, mode="non-parallel" ,k=k, epsilon=0.1, show=
     plt.title(file_title)
     plt.imshow(segmented_image)
     plt.savefig(path + file_title + ".png")
-    return total_time
+    return total_time, coreset_points, coreset_weights, coreset_centers
 
 def run_coreset_construction(i, points_weights, k=k, epsilon=0.1):
     points_weights = np.array(list(points_weights))[0] # Needed for parallelization
@@ -230,6 +231,52 @@ def experiment_1():
 
 def experiment_2():
     # TODO: Jonas will design this experiment for image segmentation
+    image_list = ["lena", "baboon"]
+    epsilon_list = [3e-1]
+    k_list = [3, 5, 10, 30, 50]
+
+    total_runs = len(image_list) * len(epsilon_list) * len(k_list)
+    iter = 0
+    df = pd.DataFrame(
+        columns=["image", "epsilon", "k", "mode", "execution time", "number of machines", "cost"]
+    )
+    PLOT_FOLDER = "images/experiment_2/"
+    start_time = time.time()
+    for image in image_list:
+        for epsilon in epsilon_list:
+            for k in k_list:
+                iter += 1
+                time_elapsed = time.strftime("%H:%M:%S", time.gmtime(time.time() - start_time))
+                print(f"run {iter}/{total_runs}, time elapsed {time_elapsed}")
+                dl = Dataloader()
+                image_array, _ = dl.get_data(image, k=k, show=False)
+                tot_time_parallel, coreset_points_parallel, coreset_weights_parallel, coreset_centers_parallel  = image_segmentation(image_array, mode="parallel" ,k=k,
+                                                                     epsilon=epsilon, show=False, path=PLOT_FOLDER)
+                tot_time_nonparallel, coreset_points_nonparallel, coreset_weights_nonparallel, coreset_centers_nonparallel = image_segmentation(image_array, mode="non-parallel" ,k=k,
+                                                                     epsilon=epsilon, show=False, path=PLOT_FOLDER)
+                # tot_time_normal, coreset_points_normal, coreset_weights_normal, coreset_centers_normal = image_segmentation(image_array, mode="no-coreset", k=k,
+                #                                              epsilon=epsilon, show=False, path=PLOT_FOLDER)
+
+                coreset_parallel_dist = euclidean_distances(coreset_points_parallel, coreset_centers_parallel).min(axis=1)
+                coreset_parallel_cost = np.sum(np.power(coreset_parallel_dist, 2) * coreset_weights_parallel)
+
+                coreset_nonparallel_dist = euclidean_distances(coreset_points_nonparallel, coreset_centers_nonparallel).min(axis=1)
+                coreset_nonparallel_cost = np.sum(np.power(coreset_nonparallel_dist, 2) * coreset_weights_nonparallel)
+
+
+                # parallel_accuracy = np.sum(coreset_parallel_labels == ground_truth_labels) / len(ground_truth_labels)
+                # nonparallel_accuracy = np.sum(coreset_nonparallel_labels == ground_truth_labels) / len(ground_truth_labels)
+
+                df = df.append(
+                    {"image": image, "epsilon": epsilon, "k": k, "mode": "parallel",
+                     "execution time": tot_time_parallel, "number of machines": NUM_MACHINES[0], "cost": coreset_parallel_cost},
+                    ignore_index=True)
+                df = df.append(
+                    {"image": image, "epsilon": epsilon, "k": k, "mode": "non-parallel",
+                     "execution time": tot_time_nonparallel, "number of machines": NUM_MACHINES[0], "cost": coreset_nonparallel_cost},
+                    ignore_index=True)
+
+    df.to_csv(PLOT_FOLDER + "performance_data_costs.csv")
     pass
     
 def experiment_3():
