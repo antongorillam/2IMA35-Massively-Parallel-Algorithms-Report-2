@@ -135,7 +135,7 @@ def blob_clustering(points_weights, k=k, epsilon=0.1, mode="non-parallel", show=
         file_name = path + "/" + file_title + ".png"
         plt.grid()
         plt.savefig(file_name)
-        
+
         return tot_time, len(coreset_points)
 
 def image_segmentation(image_array, mode="non-parallel" ,k=k, epsilon=0.1, show=False, path=None):
@@ -264,8 +264,8 @@ def experiment_3():
 
 def experiment_4():
 # Experiment for coreset vs non-coreset (maybe on image segmantion) 
-    epsilon_list = [1e-3, 1e-2, 5e-2, 1e-1, 5e-1]
-    k_list = [2, 3, 5, 10, 15, 20, 30]
+    epsilon_list = [1e-1, 3e-1, 5e-1, 7e-1, 9e-1]
+    k_list = [30]
     DATASET_NAME = ["lena", "baboon"]
     total_runs = len(DATASET_NAME) * len(epsilon_list) * len(k_list)
     iter = 0
@@ -294,13 +294,13 @@ def experiment_4():
                     {"dataset":dataset, "epsilon":epsilon, "k":k, "mode":"no-coreset", "execution time":tot_time_normal, "number of machines":NUM_MACHINES[0]},
                     ignore_index=True)
 
-    df.to_csv(PLOT_FOLDER + "performance_data.csv")
+    df.to_csv(PLOT_FOLDER + "higher_epsilon_performance_data.csv")
 
 def main():
     # experiment_1()
     # experiment_2()
-    experiment_3()
-    # experiment_4()
+    # experiment_3()
+    experiment_4()
 
 if __name__ == '__main__':
     main()
