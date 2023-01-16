@@ -249,6 +249,10 @@ def experiment_1():
 
 def experiment_2():
     # TODO: Jonas will design this experiment for image segmentation
+    image_list = ["lena", "baboon"]
+    epsilon_list = [1e-3, 0.05, 1e-1, 0.5]
+    k_list = [3, 5, 10, 30, 50, 100]
+
     pass
     
 def experiment_3():
