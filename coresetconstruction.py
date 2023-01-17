@@ -3,23 +3,23 @@ from kmeanspp import kmeanspp
 from sklearn.metrics.pairwise import euclidean_distances
 from sklearn.cluster import KMeans
 from pyspark.sql.session import SparkSession
-spark = SparkSession.builder.appName("DFTest").getOrCreate()
-sc = spark.sparkContext
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
 import time
 
+spark = SparkSession.builder.appName("DFTest").getOrCreate()
+sc = spark.sparkContext
+
 a = 1
 n = 50000
 N_SAMPLES_LIST = [1000, 5000, 10000, 50000, 100000, 500000, 1000000]
 EPSILON_LIST = [1e-3, 1e-2, 0.05, 1e-1, 0.5]
 K_LIST = [3, 4, 5, 6, 7, 8]
-k = 3
 NUM_MACHINES = [4, 2]
-# EPSILON = 0.1
 
+k = 3
 PLOT_FOLDER = "plots"
 
 
@@ -79,8 +79,6 @@ def coreset_construction(points, weights, centers, epsilon=0.1):
     temporary_set = np.array(list(point_weights.values()), dtype=object)
     S_weights = np.array([i for i in temporary_set[:,1]])
     S = np.array([i for i in temporary_set[:,0]])
-    # coreset_dist = euclidean_distances(S, centers).min(axis=1)
-    # coreset_cost = np.sum(np.power(coreset_dist, 2) * S_weights)
 
     return S, S_weights
 
@@ -115,18 +113,8 @@ def blob_clustering(points_weights, k=k, epsilon=0.1, mode="non-parallel", show=
         df_centers = pd.DataFrame(center_data)
 
         plt.figure()
-        # plt.grid()
         palette1 = sns.dark_palette("seagreen", k)
-        # palette2 = sns.color_palette("deep", k)
         sns.scatterplot(data=df_normal, x="x", y="y", hue="label", palette=palette1, legend=False)
-        # sns.scatterplot(data=df_coreset, x="x", y="y", hue="label", palette=palette1)
-        # sns.scatterplot(data=df_centers, x="x", y="y", palette="red")
-        # sns.scatterplot(data=df_coreset_centers, x="x", y="y", legend=False)
-
-        # plt.scatter(points[:, 0], points[:, 1], cmap="g", label="Original")
-        # plt.scatter(centers[:, 0], centers[:, 1], cmap="b", label="Original centers")
-        # plt.scatter(coreset_points[:,0], coreset_points[:,1], cmap="r", label="Coreset")
-        # plt.scatter(coreset_centers[:, 0], coreset_centers[:, 1], cmap="r", label="Coreset centers")
         tot_time = time.time() - start_time
         
         file_title = f"cluster_{mode}_k={k}_e={epsilon}_n={n}_coresetsize={len(coreset_points)}, time={tot_time:.1f}"
@@ -214,23 +202,8 @@ def coreset_construction_parallel(coords):
     coreset = coreset[0][1] 
     d = coreset.shape[1] - 1
     S, S_weights = coreset[:,:d], coreset[:,d:d+1]
-    return S, S_weights
 
 def experiment_1():
-    n_samples_list = [1000] #, 5000, 10000, 50000, 100000, 500000, 1000000]
-    epsilon_list = [1e-3] #, 1e-2, 0.05, 1e-1, 0.5]
-    k_list = [3] #, 4, 5, 6, 7, 8]
-    k = 3
-    PLOT_FOLDER = "images/experiment_1/"
-    for n in n_samples_list:
-        for epsilon in epsilon_list:
-            for k in k_list:
-                dl = Dataloader()
-                coords, labels = dl.get_data("blob", k=k, blob_size=n, show=False)
-                blob_clustering(coords, epsilon=epsilon, k=k, mode="parallel", show=True, path=PLOT_FOLDER)
-
-def experiment_2():
-    # TODO: Jonas will design this experiment for image segmentation
     image_list = ["lena", "baboon"]
     epsilon_list = [3e-1]
     k_list = [3, 5, 10, 30, 50]
@@ -240,7 +213,7 @@ def experiment_2():
     df = pd.DataFrame(
         columns=["image", "epsilon", "k", "mode", "execution time", "number of machines", "cost"]
     )
-    PLOT_FOLDER = "images/experiment_2/"
+    PLOT_FOLDER = "images/experiment_1/"
     start_time = time.time()
     for image in image_list:
         for epsilon in epsilon_list:
@@ -279,7 +252,7 @@ def experiment_2():
     df.to_csv(PLOT_FOLDER + "performance_data_costs.csv")
     pass
     
-def experiment_3():
+def experiment_2():
     n_samples_list = [1000, 5000, 10000, 50000, 100000, 500000, 1000000]
     epsilon_list = [1e-3, 1e-2, 1e-1]
     k_list = [15]
@@ -288,7 +261,7 @@ def experiment_3():
     df = pd.DataFrame(
         columns=["n_samples", "epsilon", "k", "mode", "execution time", "number of machines"]
     )
-    PLOT_FOLDER = "images/experiment_3/"
+    PLOT_FOLDER = "images/experiment_2/"
     start_time = time.time()
     for n in n_samples_list:
         for epsilon in epsilon_list:
@@ -309,8 +282,8 @@ def experiment_3():
 
     df.to_csv(PLOT_FOLDER + "performance_data.csv")
 
-def experiment_4():
-# Experiment for coreset vs non-coreset (maybe on image segmantion) 
+def experiment_3():
+    # Experiment for coreset vs non-coreset (maybe on image segmantion) 
     epsilon_list = [1e-1, 3e-1, 5e-1, 7e-1, 9e-1]
     k_list = [30]
     DATASET_NAME = ["lena", "baboon"]
@@ -323,7 +296,7 @@ def experiment_4():
 
     start_time = time.time()
     for dataset in DATASET_NAME:
-        PLOT_FOLDER = f"images/experiment_4/"
+        PLOT_FOLDER = f"images/experiment_3/"
         for epsilon in epsilon_list:
             for k in k_list:
                 iter += 1
@@ -347,7 +320,6 @@ def main():
     # experiment_1()
     # experiment_2()
     # experiment_3()
-    experiment_4()
 
 if __name__ == '__main__':
     main()

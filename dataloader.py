@@ -38,10 +38,3 @@ class Dataloader():
                 plt.show()
             plt.close()
             return coords, labels
-
-# def main():
-#     dl = Dataloader()
-#     data = dl.get_data("blob", blob_size=10000 ,show=True)
-#
-# if __name__ == '__main__':
-#     main()
